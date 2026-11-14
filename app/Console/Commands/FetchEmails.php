@@ -510,9 +510,6 @@ class FetchEmails extends Command
             $attachments = $message->getAttachments();
             $html_body = '';
 
-            // Is it a bounce message
-            $is_bounce = false;
-
             // Determine previous Message-ID
             $prev_message_ids = array();
 
@@ -549,75 +546,10 @@ class FetchEmails extends Command
                 $prev_message_ids[] = $marker_message_id;
             }
 
-            // Bounce detection.
-            $bounced_message_id = null;
-            if ($message->hasAttachments()) {
-                // Detect bounce by attachment.
-                // Check all attachments.
-                foreach ($attachments as $attachment) {
-                    if (!empty(Attachment::$types[$attachment->getType()]) && Attachment::$types[$attachment->getType()] == Attachment::TYPE_MESSAGE
-                    ) {
-                        if (
-                            // Checking the name will lead to mistakes if someone attaches a file with such name.
-                            // Dashes are converted to space.
-                            //in_array(strtoupper($attachment->getName()), ['RFC822', 'DELIVERY STATUS', 'DELIVERY STATUS NOTIFICATION', 'UNDELIVERED MESSAGE'])
-                            preg_match('/delivery-status/', strtolower($attachment->content_type))
-                            // 7.3.1 The Message/rfc822 (primary) subtype. A Content-Type of "message/rfc822" indicates that the body contains an encapsulated message, with the syntax of an RFC 822 message
-                            //|| $attachment->content_type == 'message/rfc822'
-                        ) {
-                            $is_bounce = true;
-
-                            $this->line('['.date('Y-m-d H:i:s').'] Bounce detected by attachment content-type: '.$attachment->content_type);
-
-                            // Try to get Message-ID of the original email.
-                            if (!$bounced_message_id) {
-                                //print_r(\MailHelper::parseHeaders($attachment->getContent()));
-                                $bounced_message_id = \MailHelper::getHeader($attachment->getContent(), 'message_id');
-                            }
-                        }
-                    }
-                }
-            }
             $message_header = $this->headerToStr($message->getHeader());
 
-            // Check Content-Type header.
-            if (!$is_bounce && $message_header) {
-                if (\MailHelper::detectBounceByHeaders($message_header)) {
-                    $is_bounce = true;
-                }
-            }
-            // Check message's From field.
-            if (!$is_bounce) {
-                if ($message->getFrom()) {
-                    $original_from = $this->formatEmailList($message->getFrom());
-                    $original_from = $original_from[0];
-                    $is_bounce = preg_match('/^mailer\-daemon@/i', $original_from);
-                    if ($is_bounce) {
-                        $this->line('['.date('Y-m-d H:i:s').'] Bounce detected by From header: '.$original_from);
-                    }
-                }
-            }
-            // Check Return-Path header
-            if (!$is_bounce && preg_match("/^Return\-Path: <>/i", $message_header)) {
-                $this->line('['.date('Y-m-d H:i:s').'] Bounce detected by Return-Path header.');
-                $is_bounce = true;
-            }
-
-            if ($is_bounce && !$bounced_message_id) {
-                foreach ($attachments as $attachment_msg) {
-                    // message/rfc822: 7.3.1 The Message/rfc822 (primary) subtype.
-                    // A Content-Type of "message/rfc822" indicates that the body contains an encapsulated message,
-                    // with the syntax of an RFC 822 message.
-                    // 
-                    // text/rfc822-headers: https://github.com/freescout-help-desk/freescout/issues/5583
-                    if (in_array($attachment_msg->content_type, ['message/rfc822', 'text/rfc822-headers'])) {
-                        $bounced_message_id = \MailHelper::getHeader($attachment_msg->getContent(), 'message_id');
-                        if ($bounced_message_id) {
-                            break;
-                        }
-                    }
-                }
-            }
+            // Bounce detection.
+            list($is_bounce, $bounced_message_id) = $this->detectBounce($message, $attachments, $message_header);
 
             // Webklex/php-imap returns object instead of a string.
             $subject = $message->getSubject()."";
@@ -1098,6 +1030,89 @@ class FetchEmails extends Command
         }
 
         return '';
+    }
+
+    /**
+     * Detect if the message is a bounce (delivery failure report).
+     *
+     * Checks (in this order): delivery-status attachment, Content-Type header,
+     * MAILER-DAEMON sender, empty Return-Path. Then tries to find Message-ID
+     * of the original (bounced) email in the attached message.
+     *
+     * @return array [$is_bounce, $bounced_message_id]
+     */
+    public function detectBounce($message, $attachments, $message_header)
+    {
+        $is_bounce = false;
+        $bounced_message_id = null;
+
+        if ($message->hasAttachments()) {
+            // Detect bounce by attachment.
+            // Check all attachments.
+            foreach ($attachments as $attachment) {
+                if (!empty(Attachment::$types[$attachment->getType()]) && Attachment::$types[$attachment->getType()] == Attachment::TYPE_MESSAGE
+                ) {
+                    if (
+                        // Checking the name will lead to mistakes if someone attaches a file with such name.
+                        // Dashes are converted to space.
+                        //in_array(strtoupper($attachment->getName()), ['RFC822', 'DELIVERY STATUS', 'DELIVERY STATUS NOTIFICATION', 'UNDELIVERED MESSAGE'])
+                        preg_match('/delivery-status/', strtolower($attachment->content_type))
+                        // 7.3.1 The Message/rfc822 (primary) subtype. A Content-Type of "message/rfc822" indicates that the body contains an encapsulated message, with the syntax of an RFC 822 message
+                        //|| $attachment->content_type == 'message/rfc822'
+                    ) {
+                        $is_bounce = true;
+
+                        $this->line('['.date('Y-m-d H:i:s').'] Bounce detected by attachment content-type: '.$attachment->content_type);
+
+                        // Try to get Message-ID of the original email.
+                        if (!$bounced_message_id) {
+                            $bounced_message_id = \MailHelper::getHeader($attachment->getContent(), 'message_id');
+                        }
+                    }
+                }
+            }
+        }
+
+        // Check Content-Type header.
+        if (!$is_bounce && $message_header) {
+            if (\MailHelper::detectBounceByHeaders($message_header)) {
+                $is_bounce = true;
+            }
+        }
+        // Check message's From field.
+        if (!$is_bounce) {
+            if ($message->getFrom()) {
+                $original_from = $this->formatEmailList($message->getFrom());
+                $original_from = $original_from[0];
+                $is_bounce = preg_match('/^mailer\-daemon@/i', $original_from);
+                if ($is_bounce) {
+                    $this->line('['.date('Y-m-d H:i:s').'] Bounce detected by From header: '.$original_from);
+                }
+            }
+        }
+        // Check Return-Path header
+        if (!$is_bounce && preg_match("/^Return\-Path: <>/i", $message_header)) {
+            $this->line('['.date('Y-m-d H:i:s').'] Bounce detected by Return-Path header.');
+            $is_bounce = true;
+        }
+
+        if ($is_bounce && !$bounced_message_id) {
+            foreach ($attachments as $attachment_msg) {
+                // message/rfc822: 7.3.1 The Message/rfc822 (primary) subtype.
+                // A Content-Type of "message/rfc822" indicates that the body contains an encapsulated message,
+                // with the syntax of an RFC 822 message.
+                //
+                // text/rfc822-headers: https://github.com/freescout-help-desk/freescout/issues/5583
+                if (in_array($attachment_msg->content_type, ['message/rfc822', 'text/rfc822-headers'])) {
+                    $bounced_message_id = \MailHelper::getHeader($attachment_msg->getContent(), 'message_id');
+                    if ($bounced_message_id) {
+                        break;
+                    }
+                }
+            }
+        }
+
+        return [$is_bounce, $bounced_message_id];
     }
 
     /**
