@@ -385,36 +385,11 @@ class FetchEmails extends Command
         try {
 
             // From - $from is the plain text email.
-            $from = $message->getReplyTo();
-
-            if (!$from 
-                // https://github.com/freescout-helpdesk/freescout/issues/3101
-                || !($reply_to = $this->formatEmailList($from))
-                || empty($reply_to[0])
-                || preg_match('/^.+@unknown$/', $reply_to[0])
-            ) {
-                $from = $message->getFrom();
-            }
-            // https://github.com/freescout-helpdesk/freescout/issues/2833
-            /*else {
-                // If this is an auto-responder do not use Reply-To as sender email.
-                // https://github.com/freescout-helpdesk/freescout/issues/2826
-                $headers = $this->headerToStr($message->getHeader());
-                if (\MailHelper::isAutoResponder($headers)) {
-                    $from = $message->getFrom();
-                }
-            }*/
-
-            if ($from) {
-                // Also sanitizes email address.
-                $from = $this->formatEmailList($from);
-            }
+            $from = $this->getSenderEmail($message);
 
             if (!$from) {
                 $this->skipMessage($message, $mailbox, 'From is empty');
                 return;
-            } else {
-                $from = $from[0];
             }
 
             // Message-ID can be empty.
@@ -838,6 +813,32 @@ class FetchEmails extends Command
         }
 
         return '';
+    }
+
+    /**
+     * Sender email: Reply-To if it is valid, otherwise From.
+     * https://github.com/freescout-helpdesk/freescout/issues/3101
+     *
+     * @return string Sanitized email or empty string.
+     */
+    public function getSenderEmail($message)
+    {
+        $from = $message->getReplyTo();
+
+        if (!$from
+            || !($reply_to = $this->formatEmailList($from))
+            || empty($reply_to[0])
+            || preg_match('/^.+@unknown$/', $reply_to[0])
+        ) {
+            $from = $message->getFrom();
+        }
+
+        if ($from) {
+            // Also sanitizes email address.
+            $from = $this->formatEmailList($from);
+        }
+
+        return $from ? $from[0] : '';
     }
 
     /**
