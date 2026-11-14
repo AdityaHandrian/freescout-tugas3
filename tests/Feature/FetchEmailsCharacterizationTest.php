@@ -615,6 +615,19 @@ Komplain kedua."), $this->mailbox];
             ], 'Percakapan yang dipindah.'), $this->mailbox2];
         };
 
+        // S38 Same as S37 but WITHOUT In-Reply-To (only References)
+        // -> thread from another mailbox is not trusted -> new conversation in Sales.
+        $s['S38_reply_moved_conversation_without_in_reply_to'] = function () {
+            $t = $this->agentThread();
+            return [$this->eml([
+                'From'       => 'Budi Santoso <budi@pelanggan.test>',
+                'To'         => 'sales@toko.test',
+                'Subject'    => 'Re: Pesanan belum sampai',
+                'Message-ID' => '<s38@pelanggan.test>',
+                'References' => '<FS_reply-'.$t->id.'-'.$this->replyHash($t->id).'@toko.test>',
+            ], 'Tanpa In-Reply-To.'), $this->mailbox2];
+        };
+
         // S30 Empty From -> error.
         $s['S30_empty_from'] = function () {
             return [$this->eml([
