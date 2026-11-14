@@ -20,6 +20,8 @@ class FetchEmailsExtractedMethodsTest extends TestCase
     {
         parent::setUp();
         config(['app.key' => 'base64:'.base64_encode('tugas3-epl-kelompok8-golden-key!')]);
+        // Initialise static Webklex options (do not depend on other test classes).
+        new \Webklex\PHPIMAP\ClientManager();
         $this->cmd = new class extends FetchEmails {
             public function line($string, $style = null, $verbosity = null)
             {
