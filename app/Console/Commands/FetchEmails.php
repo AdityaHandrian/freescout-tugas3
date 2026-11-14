@@ -506,45 +506,11 @@ class FetchEmails extends Command
             $user = null; // for user reply only
             $message_from_customer = true;
             $in_reply_to = trim($message->getInReplyTo() ?? '', '<>');
-            $references = $message->getReferences();
             $attachments = $message->getAttachments();
-            $html_body = '';
-
-            // Determine previous Message-ID
-            $prev_message_ids = array();
-
-            if ($references && !is_array($references)) {
-                $references = array_filter(preg_split('/[, <>]/', $references));
-            }
-
-            if ($in_reply_to) {
-                $prev_message_ids[] = $in_reply_to;
-            }
-            if ($references) {
-                // Find non-empty references
-                if (is_array($references)) {
-                    foreach ($references as $reference) {
-                        if (!empty(trim($reference))) {
-                            $prev_message_ids[] = trim($reference);
-                        }
-                    }
-                }
-            }
-
-            // Some mail service providers change Message-ID of the outgoing email,
-            // so we are passing Message-ID in marker in body.
-            // $reply_prefixes = [
-            //     \MailHelper::MESSAGE_ID_PREFIX_NOTIFICATION,
-            //     \MailHelper::MESSAGE_ID_PREFIX_REPLY_TO_CUSTOMER,
-            //     \MailHelper::MESSAGE_ID_PREFIX_AUTO_REPLY,
-            // ];
-
-            // Try to get previous message ID from marker in body.
             $html_body = $message->getHTMLBody(false);
-            $marker_message_id = \MailHelper::fetchMessageMarkerValue($html_body);
-            if ($marker_message_id) {
-                $prev_message_ids[] = $marker_message_id;
-            }
+
+            // Determine previous Message-IDs.
+            $prev_message_ids = $this->getPrevMessageIds($in_reply_to, $message->getReferences(), $html_body, $mailbox);
 
             $message_header = $this->headerToStr($message->getHeader());
 
@@ -558,16 +524,6 @@ class FetchEmails extends Command
             if (preg_match('/=\?[a-z\d-]+\?[BQ]\?.*\?=/i', $subject)) {
                 $subject = \Helper::iconvMimeDecode($subject);
             }
-
-            // Add to prev messaged IDs auto-generated Message-IDs.
-            foreach ($prev_message_ids as $prev_message_id) {
-                $new_prev_message_id = \MailHelper::generateMessageId($prev_message_id, $mailbox->id.$prev_message_id);
-                if (!in_array($new_prev_message_id, $prev_message_ids)) {
-                    $prev_message_ids[] = $new_prev_message_id;
-                }
-            }
-
-            $prev_message_ids = array_values(array_unique($prev_message_ids));
 
             # Try to get the thread traversing the possible prev_message_ids
             foreach ($prev_message_ids as $i => $prev_message_id) {
@@ -1030,6 +986,51 @@ class FetchEmails extends Command
         }
 
         return '';
+    }
+
+    /**
+     * Collect Message-IDs which can point to the previous thread:
+     * In-Reply-To, References, marker in the body and artificial
+     * Message-IDs generated when importing into several mailboxes.
+     *
+     * @return array Unique Message-IDs in priority order.
+     */
+    public function getPrevMessageIds($in_reply_to, $references, $html_body, $mailbox)
+    {
+        $prev_message_ids = [];
+
+        if ($references && !is_array($references)) {
+            $references = array_filter(preg_split('/[, <>]/', $references));
+        }
+
+        if ($in_reply_to) {
+            $prev_message_ids[] = $in_reply_to;
+        }
+        // Find non-empty references
+        if ($references && is_array($references)) {
+            foreach ($references as $reference) {
+                if (!empty(trim($reference))) {
+                    $prev_message_ids[] = trim($reference);
+                }
+            }
+        }
+
+        // Some mail service providers change Message-ID of the outgoing email,
+        // so we are passing Message-ID in marker in body.
+        $marker_message_id = \MailHelper::fetchMessageMarkerValue($html_body);
+        if ($marker_message_id) {
+            $prev_message_ids[] = $marker_message_id;
+        }
+
+        // Add to prev messaged IDs auto-generated Message-IDs.
+        foreach ($prev_message_ids as $prev_message_id) {
+            $new_prev_message_id = \MailHelper::generateMessageId($prev_message_id, $mailbox->id.$prev_message_id);
+            if (!in_array($new_prev_message_id, $prev_message_ids)) {
+                $prev_message_ids[] = $new_prev_message_id;
+            }
+        }
+
+        return array_values(array_unique($prev_message_ids));
     }
 
     /**
