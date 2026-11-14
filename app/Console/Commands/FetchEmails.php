@@ -609,90 +609,12 @@ class FetchEmails extends Command
                     //
                     // Make sure that prev_thread belongs to the current mailbox.
                     // Problems may arise when forwarding conversation for example.
-                    if ($prev_thread && $message_from_customer) {
-
-                        if ($prev_thread->conversation->mailbox_id != $mailbox->id) {
-
-                            // Try to get thread by artificial message ID.
-                            if ($in_reply_to) {
-
-                                // If customer sends an email to multiple mailboxes:
-                                // - A conversation is created for each mailbox.
-                                // - An agent responds from each mailbox and includes other mailboxes in CC.
-                                // - The customer replies to each email.
-                                // https://github.com/freescout-help-desk/freescout/issues/5308
-
-                                // Is this a reply to the message with artificial Message-ID.
-                                $message_ids = [\MailHelper::generateMessageId($in_reply_to, $mailbox->id.$in_reply_to), $in_reply_to];
-                                $prev_thread_tmp = Thread::whereIn('message_id', $message_ids)->whereHas('conversation', function ($q) use ($mailbox) {
-                                        $q->where('mailbox_id', $mailbox->id);
-                                })->first();
-
-                                if ($prev_thread_tmp) {
-                                    $prev_thread = $prev_thread_tmp;
-                                } elseif (\MailHelper::isGeneratedMessageId($prev_thread->message_id)) {
-                                    // Try to extract the original Message-ID from the mismatched thread's raw headers
-                                    // https://github.com/freescout-help-desk/freescout/issues/5308#issuecomment-4218652527
-                                    $original_id = trim(\MailHelper::getHeader($prev_thread->headers, 'Message-ID'));
-                                    $correct_thread = null;
-
-                                    // Search the current mailbox for BOTH the original ID and this mailbox's generated hash of the original ID
-                                    if ($original_id) {
-                                        $search_ids = [
-                                            $original_id,
-                                            \MailHelper::generateMessageId($original_id, $mailbox->id.$original_id),
-                                        ];
-
-                                        $correct_thread = Thread::whereIn('message_id', $search_ids)
-                                            ->whereHas('conversation', function ($q) use ($mailbox) {
-                                                $q->where('mailbox_id', $mailbox->id);
-                                            })->first();
-                                    }
-                                    if ($correct_thread) {
-                                        $prev_thread = $correct_thread;
-                                    }
-                                    if (!$correct_thread) {
-                                        $prev_thread = null;
-                                    }
-                                } else {
-                                    // Prev Thread SHOULD BE PRESERVED in the following case:
-                                    // - Existing conversation is moved from Mailbox A to Mailbox B.
-                                    // - Customer replies to some earlier received reply from an agent.
-                                    // - The email is fetched into Mailbox A (as To in in the email points to Mailbox A).
-                                    // - The reply creates a new conversation in Mailbox A instead of 
-                                    //   being linked to the existing conversation in Mailbox B.
-                                    // https://github.com/freescout-help-desk/freescout/issues/5590
-                                    //
-                                    // Search for LINE_ITEM threads and check if this conversations
-                                    // was in Mailbox A at some point (action_data contains prev mailbox IDs).
-                                    $prev_mailbox_ids = Thread::where('conversation_id', $prev_thread->conversation_id)
-                                        //->where('state', Thread::STATE_PUBLISHED)
-                                        ->where('action_type', Thread::ACTION_TYPE_MOVED_FROM_MAILBOX)
-                                        ->pluck('action_data')
-                                        ->toArray();
-
-                                    if (!in_array($mailbox->id, $prev_mailbox_ids)) {
-                                        // Prev Thread has to be reset in the following case:
-                                        // - Customer sends an email to Mailbox A and B.
-                                        // - Support agent replies in Mailbox A and CCs Mailbox B.
-                                        // - Customer replies to this email keeping Mailbox B in copy.
-                                        // - Mailbox B fetches customer reply and sees that In-Reply-To is linked to a thread from Mailbox A
-                                        //   (as Message-ID of agent email contains -thread_id- in it and thread_id belongs to Mailbox A).
-                                        // - FreeScout links this agent's reply to the conversation in Mailbox A instead of creating a new
-                                        //   conversation in Mailbox B.
-                                        // https://github.com/freescout-help-desk/freescout/issues/5350
-                                        $prev_thread = null;
-                                    }
-                                }
-
-                                if (!$prev_thread) {
-                                    $prev_thread = null;
-                                    $is_reply = false;
-                                }
-                            } else {
-                                $prev_thread = null;
-                                $is_reply = false;
-                            }
+                    if ($prev_thread && $message_from_customer
+                        && $prev_thread->conversation->mailbox_id != $mailbox->id
+                    ) {
+                        $prev_thread = $this->findPrevThreadInMailbox($prev_thread, $in_reply_to, $mailbox);
+                        if (!$prev_thread) {
+                            $is_reply = false;
                         }
                     }
 
@@ -986,6 +908,96 @@ class FetchEmails extends Command
         }
 
         return '';
+    }
+
+    /**
+     * Customer replied to a thread which belongs to another mailbox.
+     * Find the matching thread in the current mailbox or decide whether
+     * the thread from another mailbox can still be used.
+     *
+     * @return Thread|null Null means: create a new conversation.
+     */
+    public function findPrevThreadInMailbox($prev_thread, $in_reply_to, $mailbox)
+    {
+        // Without In-Reply-To a thread from another mailbox is not used.
+        if (!$in_reply_to) {
+            return null;
+        }
+
+        // If customer sends an email to multiple mailboxes:
+        // - A conversation is created for each mailbox.
+        // - An agent responds from each mailbox and includes other mailboxes in CC.
+        // - The customer replies to each email.
+        // https://github.com/freescout-help-desk/freescout/issues/5308
+        //
+        // Is this a reply to the message with artificial Message-ID.
+        $thread = $this->findThreadInMailbox([
+            \MailHelper::generateMessageId($in_reply_to, $mailbox->id.$in_reply_to),
+            $in_reply_to,
+        ], $mailbox);
+        if ($thread) {
+            return $thread;
+        }
+
+        if (\MailHelper::isGeneratedMessageId($prev_thread->message_id)) {
+            // Try to extract the original Message-ID from the mismatched thread's raw headers
+            // and search the current mailbox for BOTH the original ID and this mailbox's
+            // generated hash of the original ID.
+            // https://github.com/freescout-help-desk/freescout/issues/5308#issuecomment-4218652527
+            $original_id = trim(\MailHelper::getHeader($prev_thread->headers, 'Message-ID'));
+            if (!$original_id) {
+                return null;
+            }
+
+            return $this->findThreadInMailbox([
+                $original_id,
+                \MailHelper::generateMessageId($original_id, $mailbox->id.$original_id),
+            ], $mailbox);
+        }
+
+        // Prev Thread SHOULD BE PRESERVED in the following case:
+        // - Existing conversation is moved from Mailbox A to Mailbox B.
+        // - Customer replies to some earlier received reply from an agent.
+        // - The email is fetched into Mailbox A (as To in in the email points to Mailbox A).
+        // - The reply creates a new conversation in Mailbox A instead of
+        //   being linked to the existing conversation in Mailbox B.
+        // https://github.com/freescout-help-desk/freescout/issues/5590
+        //
+        // Search for LINE_ITEM threads and check if this conversations
+        // was in Mailbox A at some point (action_data contains prev mailbox IDs).
+        $prev_mailbox_ids = Thread::where('conversation_id', $prev_thread->conversation_id)
+            ->where('action_type', Thread::ACTION_TYPE_MOVED_FROM_MAILBOX)
+            ->pluck('action_data')
+            ->toArray();
+
+        if (!in_array($mailbox->id, $prev_mailbox_ids)) {
+            // Prev Thread has to be reset in the following case:
+            // - Customer sends an email to Mailbox A and B.
+            // - Support agent replies in Mailbox A and CCs Mailbox B.
+            // - Customer replies to this email keeping Mailbox B in copy.
+            // - Mailbox B fetches customer reply and sees that In-Reply-To is linked to a thread from Mailbox A
+            //   (as Message-ID of agent email contains -thread_id- in it and thread_id belongs to Mailbox A).
+            // - FreeScout links this agent's reply to the conversation in Mailbox A instead of creating a new
+            //   conversation in Mailbox B.
+            // https://github.com/freescout-help-desk/freescout/issues/5350
+            return null;
+        }
+
+        return $prev_thread;
+    }
+
+    /**
+     * Find first thread having one of the Message-IDs in the given mailbox.
+     *
+     * @return Thread|null
+     */
+    public function findThreadInMailbox(array $message_ids, $mailbox)
+    {
+        return Thread::whereIn('message_id', $message_ids)
+            ->whereHas('conversation', function ($q) use ($mailbox) {
+                $q->where('mailbox_id', $mailbox->id);
+            })
+            ->first();
     }
 
     /**
