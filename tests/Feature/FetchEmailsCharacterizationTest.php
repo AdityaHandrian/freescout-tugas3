@@ -558,6 +558,63 @@ Komplain kedua."), $this->mailbox];
             ], 'Tanggal email di masa depan.'), $this->mailbox];
         };
 
+        // --- Customer replies to a thread which belongs to ANOTHER mailbox ---
+
+        // S34 Agent reply lives in Support, customer replies (In-Reply-To) to Sales.
+        // No matching thread in Sales, conversation was never in Sales -> new conversation.
+        $s['S34_reply_other_mailbox_new_conversation'] = function () {
+            $t = $this->agentThread();
+            return [$this->eml([
+                'From'        => 'Budi Santoso <budi@pelanggan.test>',
+                'To'          => 'sales@toko.test',
+                'Subject'     => 'Re: Pesanan belum sampai',
+                'Message-ID'  => '<s34@pelanggan.test>',
+                'In-Reply-To' => '<FS_reply-'.$t->id.'-'.$this->replyHash($t->id).'@toko.test>',
+            ], 'Saya kirim ke sales.'), $this->mailbox2];
+        };
+
+        // S35 Customer replies to S02 (Support) into Sales; Sales has its own copy (S03)
+        // with artificial Message-ID -> linked to the copy in Sales.
+        $s['S35_reply_other_mailbox_found_artificial_copy'] = function () {
+            return [$this->eml([
+                'From'        => 'Citra <citra@pelanggan.test>',
+                'To'          => 'sales@toko.test',
+                'Subject'     => 'Re: Minta penawaran',
+                'Message-ID'  => '<s35@pelanggan.test>',
+                'In-Reply-To' => '<s02@pelanggan.test>',
+            ], 'Balasan untuk salinan di Sales.'), $this->mailbox2];
+        };
+
+        // S36 Customer replies into Support to the artificial Message-ID of the Sales copy
+        // -> original Message-ID is taken from the raw headers of the copy.
+        $s['S36_reply_to_artificial_message_id_from_other_mailbox'] = function () {
+            $copy = Thread::where('message_id', 'like', 'fs-%')
+                ->whereHas('conversation', function ($q) {
+                    $q->where('mailbox_id', $this->mailbox2->id);
+                })->orderBy('id')->first();
+            return [$this->eml([
+                'From'        => 'Citra <citra@pelanggan.test>',
+                'To'          => 'support@toko.test',
+                'Subject'     => 'Re: Minta penawaran',
+                'Message-ID'  => '<s36@pelanggan.test>',
+                'In-Reply-To' => '<'.$copy->message_id.'>',
+            ], 'Balasan ke ID buatan.'), $this->mailbox];
+        };
+
+        // S37 Conversation #1 was moved from Sales to Support at some point (line item),
+        // customer replies to the agent into Sales -> existing conversation is preserved.
+        $s['S37_setup_conversation_moved_from_sales'] = 'setup_moved_line_item';
+        $s['S37_reply_to_conversation_moved_from_other_mailbox'] = function () {
+            $t = $this->agentThread();
+            return [$this->eml([
+                'From'        => 'Budi Santoso <budi@pelanggan.test>',
+                'To'          => 'sales@toko.test',
+                'Subject'     => 'Re: Pesanan belum sampai',
+                'Message-ID'  => '<s37@pelanggan.test>',
+                'In-Reply-To' => '<FS_reply-'.$t->id.'-'.$this->replyHash($t->id).'@toko.test>',
+            ], 'Percakapan yang dipindah.'), $this->mailbox2];
+        };
+
         // S30 Empty From -> error.
         $s['S30_empty_from'] = function () {
             return [$this->eml([
@@ -592,6 +649,27 @@ Komplain kedua."), $this->mailbox];
         $thread->customer_id = $conversation->customer_id;
         $thread->created_by_user_id = $this->user->id;
         $thread->created_at = '2026-11-02 11:00:00';
+        $thread->save();
+    }
+
+    /**
+     * Line item "moved from mailbox Sales" in conversation of the agent reply.
+     */
+    protected function setupMovedLineItem()
+    {
+        $agent_thread = $this->agentThread();
+        $thread = new Thread();
+        $thread->conversation_id = $agent_thread->conversation_id;
+        $thread->user_id = $this->user->id;
+        $thread->type = Thread::TYPE_LINEITEM;
+        $thread->status = Thread::STATUS_NOCHANGE;
+        $thread->state = Thread::STATE_PUBLISHED;
+        $thread->action_type = Thread::ACTION_TYPE_MOVED_FROM_MAILBOX;
+        $thread->action_data = (string)$this->mailbox2->id;
+        $thread->source_via = Thread::PERSON_USER;
+        $thread->source_type = Thread::SOURCE_TYPE_WEB;
+        $thread->created_by_user_id = $this->user->id;
+        $thread->created_at = '2026-11-02 12:00:00';
         $thread->save();
     }
 
@@ -647,6 +725,11 @@ Komplain kedua."), $this->mailbox];
         foreach ($this->scenarios() as $label => $scenario) {
             if ($scenario === 'setup_agent_reply') {
                 $this->setupAgentReply();
+                $result[$label] = ['db' => $this->snapshotDb()];
+                continue;
+            }
+            if ($scenario === 'setup_moved_line_item') {
+                $this->setupMovedLineItem();
                 $result[$label] = ['db' => $this->snapshotDb()];
                 continue;
             }

@@ -2889,6 +2889,346 @@
             ]
         }
     },
+    "S34_reply_other_mailbox_new_conversation": {
+        "output": "[TS] Message from: Customer\n[TS] Message from: Customer\n[TS] Thread successfully created: 28\n",
+        "seen": [
+            "s34@pelanggan.test"
+        ],
+        "extra_import": [],
+        "db": {
+            "conversations": [
+                {
+                    "id": 19,
+                    "number": 19,
+                    "threads_count": 1,
+                    "type": 1,
+                    "folder_id": 9,
+                    "status": 1,
+                    "state": 2,
+                    "subject": "Re: Pesanan belum sampai",
+                    "customer_email": "budi@pelanggan.test",
+                    "cc": null,
+                    "bcc": null,
+                    "preview": "Saya kirim ke sales.",
+                    "imported": 0,
+                    "has_attachments": 0,
+                    "mailbox_id": 2,
+                    "user_id": null,
+                    "customer_id": 1,
+                    "created_by_user_id": null,
+                    "created_by_customer_id": 1,
+                    "source_via": 1,
+                    "source_type": 1,
+                    "closed_by_user_id": null,
+                    "last_reply_from": 1,
+                    "created_at": "2026-11-02 10:00:00",
+                    "channel": null,
+                    "meta": null
+                }
+            ],
+            "threads": [
+                {
+                    "id": 28,
+                    "conversation_id": 19,
+                    "user_id": null,
+                    "type": 1,
+                    "subtype": null,
+                    "status": 1,
+                    "state": 2,
+                    "action_type": null,
+                    "action_data": null,
+                    "body": "Saya kirim ke sales.",
+                    "headers": "Date: Mon, 02 Nov 2026 10:00:00 +0000\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=UTF-8\r\nFrom: Budi Santoso <budi@pelanggan.test>\r\nTo: sales@toko.test\r\nSubject: Re: Pesanan belum sampai\r\nMessage-ID: <s34@pelanggan.test>\r\nIn-Reply-To: <FS_reply-10-af3133a53fc00e18@toko.test>",
+                    "from": "budi@pelanggan.test",
+                    "to": "[\"sales@toko.test\"]",
+                    "cc": null,
+                    "bcc": null,
+                    "has_attachments": 0,
+                    "message_id": "s34@pelanggan.test",
+                    "source_via": 1,
+                    "source_type": 1,
+                    "customer_id": 1,
+                    "created_by_user_id": null,
+                    "created_by_customer_id": 1,
+                    "edited_by_user_id": null,
+                    "edited_at": null,
+                    "body_original": null,
+                    "first": 1,
+                    "saved_reply_id": null,
+                    "send_status": null,
+                    "send_status_data": null,
+                    "created_at": "2026-11-02 10:00:00",
+                    "meta": null,
+                    "imported": 0
+                }
+            ]
+        }
+    },
+    "S35_reply_other_mailbox_found_artificial_copy": {
+        "output": "[TS] Message from: Customer\n[TS] Thread successfully created: 29\n",
+        "seen": [
+            "s35@pelanggan.test"
+        ],
+        "extra_import": [],
+        "db": {
+            "conversations": [
+                {
+                    "id": 3,
+                    "number": 3,
+                    "threads_count": 2,
+                    "type": 1,
+                    "folder_id": 9,
+                    "status": 1,
+                    "state": 2,
+                    "subject": "Minta penawaran",
+                    "customer_email": "citra@pelanggan.test",
+                    "cc": null,
+                    "bcc": null,
+                    "preview": "Balasan untuk salinan di Sales.",
+                    "imported": 0,
+                    "has_attachments": 0,
+                    "mailbox_id": 2,
+                    "user_id": null,
+                    "customer_id": 3,
+                    "created_by_user_id": null,
+                    "created_by_customer_id": 3,
+                    "source_via": 1,
+                    "source_type": 1,
+                    "closed_by_user_id": null,
+                    "last_reply_from": 1,
+                    "created_at": "2026-11-02 10:00:00",
+                    "channel": null,
+                    "meta": null
+                }
+            ],
+            "threads": [
+                {
+                    "id": 29,
+                    "conversation_id": 3,
+                    "user_id": null,
+                    "type": 1,
+                    "subtype": null,
+                    "status": 1,
+                    "state": 2,
+                    "action_type": null,
+                    "action_data": null,
+                    "body": "Balasan untuk salinan di Sales.",
+                    "headers": "Date: Mon, 02 Nov 2026 10:00:00 +0000\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=UTF-8\r\nFrom: Citra <citra@pelanggan.test>\r\nTo: sales@toko.test\r\nSubject: Re: Minta penawaran\r\nMessage-ID: <s35@pelanggan.test>\r\nIn-Reply-To: <s02@pelanggan.test>",
+                    "from": "citra@pelanggan.test",
+                    "to": "[\"sales@toko.test\"]",
+                    "cc": null,
+                    "bcc": null,
+                    "has_attachments": 0,
+                    "message_id": "s35@pelanggan.test",
+                    "source_via": 1,
+                    "source_type": 1,
+                    "customer_id": 3,
+                    "created_by_user_id": null,
+                    "created_by_customer_id": 3,
+                    "edited_by_user_id": null,
+                    "edited_at": null,
+                    "body_original": null,
+                    "first": 0,
+                    "saved_reply_id": null,
+                    "send_status": null,
+                    "send_status_data": null,
+                    "created_at": "2026-11-02 10:00:00",
+                    "meta": null,
+                    "imported": 0
+                }
+            ]
+        }
+    },
+    "S36_reply_to_artificial_message_id_from_other_mailbox": {
+        "output": "[TS] Message from: Customer\n[TS] Thread successfully created: 30\n",
+        "seen": [
+            "s36@pelanggan.test"
+        ],
+        "extra_import": [],
+        "db": {
+            "conversations": [
+                {
+                    "id": 2,
+                    "number": 2,
+                    "threads_count": 2,
+                    "type": 1,
+                    "folder_id": 1,
+                    "status": 1,
+                    "state": 2,
+                    "subject": "Minta penawaran",
+                    "customer_email": "citra@pelanggan.test",
+                    "cc": null,
+                    "bcc": null,
+                    "preview": "Balasan ke ID buatan.",
+                    "imported": 0,
+                    "has_attachments": 0,
+                    "mailbox_id": 1,
+                    "user_id": null,
+                    "customer_id": 3,
+                    "created_by_user_id": null,
+                    "created_by_customer_id": 3,
+                    "source_via": 1,
+                    "source_type": 1,
+                    "closed_by_user_id": null,
+                    "last_reply_from": 1,
+                    "created_at": "2026-11-02 10:00:00",
+                    "channel": null,
+                    "meta": null
+                }
+            ],
+            "threads": [
+                {
+                    "id": 30,
+                    "conversation_id": 2,
+                    "user_id": null,
+                    "type": 1,
+                    "subtype": null,
+                    "status": 1,
+                    "state": 2,
+                    "action_type": null,
+                    "action_data": null,
+                    "body": "Balasan ke ID buatan.",
+                    "headers": "Date: Mon, 02 Nov 2026 10:00:00 +0000\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=UTF-8\r\nFrom: Citra <citra@pelanggan.test>\r\nTo: support@toko.test\r\nSubject: Re: Minta penawaran\r\nMessage-ID: <s36@pelanggan.test>\r\nIn-Reply-To: <fs-9b6eabd96d03efd9d52a0c4ab358ff12@pelanggan.test>",
+                    "from": "citra@pelanggan.test",
+                    "to": "[\"support@toko.test\"]",
+                    "cc": null,
+                    "bcc": null,
+                    "has_attachments": 0,
+                    "message_id": "s36@pelanggan.test",
+                    "source_via": 1,
+                    "source_type": 1,
+                    "customer_id": 3,
+                    "created_by_user_id": null,
+                    "created_by_customer_id": 3,
+                    "edited_by_user_id": null,
+                    "edited_at": null,
+                    "body_original": null,
+                    "first": 0,
+                    "saved_reply_id": null,
+                    "send_status": null,
+                    "send_status_data": null,
+                    "created_at": "2026-11-02 10:00:00",
+                    "meta": null,
+                    "imported": 0
+                }
+            ]
+        }
+    },
+    "S37_setup_conversation_moved_from_sales": {
+        "db": {
+            "threads": [
+                {
+                    "id": 31,
+                    "conversation_id": 1,
+                    "user_id": 1,
+                    "type": 4,
+                    "subtype": null,
+                    "status": 6,
+                    "state": 2,
+                    "action_type": 3,
+                    "action_data": "2",
+                    "body": null,
+                    "headers": null,
+                    "from": null,
+                    "to": null,
+                    "cc": null,
+                    "bcc": null,
+                    "has_attachments": 0,
+                    "message_id": null,
+                    "source_via": 2,
+                    "source_type": 2,
+                    "customer_id": null,
+                    "created_by_user_id": 1,
+                    "created_by_customer_id": null,
+                    "edited_by_user_id": null,
+                    "edited_at": null,
+                    "body_original": null,
+                    "first": 0,
+                    "saved_reply_id": null,
+                    "send_status": null,
+                    "send_status_data": null,
+                    "created_at": "2026-11-02 12:00:00",
+                    "meta": null,
+                    "imported": 0
+                }
+            ]
+        }
+    },
+    "S37_reply_to_conversation_moved_from_other_mailbox": {
+        "output": "[TS] Message from: Customer\n[TS] Thread successfully created: 32\n",
+        "seen": [
+            "s37@pelanggan.test"
+        ],
+        "extra_import": [],
+        "db": {
+            "conversations": [
+                {
+                    "id": 1,
+                    "number": 1,
+                    "threads_count": 10,
+                    "type": 1,
+                    "folder_id": 1,
+                    "status": 1,
+                    "state": 2,
+                    "subject": "Pesanan belum sampai",
+                    "customer_email": "budi@pelanggan.test",
+                    "cc": "[\"agent@agents.test\"]",
+                    "bcc": null,
+                    "preview": "Percakapan yang dipindah.",
+                    "imported": 0,
+                    "has_attachments": 0,
+                    "mailbox_id": 1,
+                    "user_id": null,
+                    "customer_id": 1,
+                    "created_by_user_id": null,
+                    "created_by_customer_id": 1,
+                    "source_via": 1,
+                    "source_type": 1,
+                    "closed_by_user_id": null,
+                    "last_reply_from": 1,
+                    "created_at": "2026-11-02 10:00:00",
+                    "channel": null,
+                    "meta": null
+                }
+            ],
+            "threads": [
+                {
+                    "id": 32,
+                    "conversation_id": 1,
+                    "user_id": null,
+                    "type": 1,
+                    "subtype": null,
+                    "status": 1,
+                    "state": 2,
+                    "action_type": null,
+                    "action_data": null,
+                    "body": "Percakapan yang dipindah.",
+                    "headers": "Date: Mon, 02 Nov 2026 10:00:00 +0000\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=UTF-8\r\nFrom: Budi Santoso <budi@pelanggan.test>\r\nTo: sales@toko.test\r\nSubject: Re: Pesanan belum sampai\r\nMessage-ID: <s37@pelanggan.test>\r\nIn-Reply-To: <FS_reply-10-af3133a53fc00e18@toko.test>",
+                    "from": "budi@pelanggan.test",
+                    "to": "[\"sales@toko.test\"]",
+                    "cc": null,
+                    "bcc": null,
+                    "has_attachments": 0,
+                    "message_id": "s37@pelanggan.test",
+                    "source_via": 1,
+                    "source_type": 1,
+                    "customer_id": 1,
+                    "created_by_user_id": null,
+                    "created_by_customer_id": 1,
+                    "edited_by_user_id": null,
+                    "edited_at": null,
+                    "body_original": null,
+                    "first": 0,
+                    "saved_reply_id": null,
+                    "send_status": null,
+                    "send_status_data": null,
+                    "created_at": "2026-11-02 10:00:00",
+                    "meta": null,
+                    "imported": 0
+                }
+            ]
+        }
+    },
     "S30_empty_from": {
         "output": "[TS] From is empty\n",
         "seen": [
