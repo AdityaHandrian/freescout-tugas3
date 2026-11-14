@@ -87,7 +87,7 @@ class FetchEmails extends Command
             \Config::set('imap.options.debug', true);
         }
 
-        $this->line('['.date('Y-m-d H:i:s').'] Fetching '.($this->option('unseen') ? 'UNREAD' : 'ALL').' emails for the last '.$this->option('days').' days.');
+        $this->logInfo('Fetching '.($this->option('unseen') ? 'UNREAD' : 'ALL').' emails for the last '.$this->option('days').' days.');
 
         if (Mailbox::getInProtocols() === Mailbox::$in_protocols) {
             $this->mailboxes = Mailbox::get();
@@ -126,7 +126,7 @@ class FetchEmails extends Command
                 $sleep = self::MAX_SLEEP;
             }
 
-            $this->info('['.date('Y-m-d H:i:s').'] Mailbox: '.$mailbox->name);
+            $this->info($this->formatLogLine('Mailbox: '.$mailbox->name));
 
             $this->mailbox = $mailbox;
             $this->extra_import = [];
@@ -149,7 +149,7 @@ class FetchEmails extends Command
                         $debug_log = $this->executeFetch($mailbox, $debug);
                     } catch (\Exception $e) {
                         $successfully = false;
-                        $this->logError('Error: '.$e->getMessage().'; File: '.$e->getFile().' ('.$e->getLine().')').')';
+                        $this->logError('Error: '.$e->getMessage().'; File: '.$e->getFile().' ('.$e->getLine().')');
                     }
                 } else {
                     $successfully = false;
@@ -159,7 +159,7 @@ class FetchEmails extends Command
                     // So there can be situations when more than one fetching imports same email.
                     if (!\Str::startsWith($e->getMessage(), 'SQLSTATE[23000]: Integrity constraint violation: 1062 Duplicate entry')
                     ) {
-                        $this->logError('Error: '.$e->getMessage().'; File: '.$e->getFile().' ('.$e->getLine().')').')';
+                        $this->logError('Error: '.$e->getMessage().'; File: '.$e->getFile().' ('.$e->getLine().')');
                     }
                 }
             }
@@ -170,9 +170,9 @@ class FetchEmails extends Command
 
             // Import emails sent to several mailboxes at once.
             if (count($this->extra_import)) {
-                $this->line('['.date('Y-m-d H:i:s').'] Importing emails sent to several mailboxes at once: '.count($this->extra_import));
+                $this->logInfo('Importing emails sent to several mailboxes at once: '.count($this->extra_import));
                 foreach ($this->extra_import as $i => $extra_import) {
-                    $this->line('['.date('Y-m-d H:i:s').'] '.($i+1).') '.$extra_import['message']->getSubject());
+                    $this->logInfo(($i+1).') '.$extra_import['message']->getSubject());
                     $this->processMessage($extra_import['message'], $extra_import['message_id'], $extra_import['mailbox'], [], true);
                 }
             }
@@ -188,7 +188,7 @@ class FetchEmails extends Command
         // so we need to run processing subscription events manually
         Subscription::processEvents();
 
-        $this->info('['.date('Y-m-d H:i:s').'] Fetching finished');
+        $this->info($this->formatLogLine('Fetching finished'));
 
         $this->extra_import = [];
         $this->mailbox = null;
@@ -228,7 +228,7 @@ class FetchEmails extends Command
             // POP3 uses LegacyProtocol.php
             // https://github.com/freescout-helpdesk/freescout/issues/4060
             if ($error && \Str::startsWith($error, 'Mailbox is empty')) {
-                $this->line('['.date('Y-m-d H:i:s').'] Fetched: 0');
+                $this->logInfo('Fetched: 0');
                 return;
             } else {
                 throw $e;
@@ -247,13 +247,13 @@ class FetchEmails extends Command
                 $folder = \MailHelper::getImapFolder($client, $folder_name);
             } catch (\Exception $e) {
                 // Just log error and continue.
-                $this->error('['.date('Y-m-d H:i:s').'] IMAP folder ('.$folder_name.') not found on the mail server: '.$e->getMessage());
+                $this->error($this->formatLogLine('IMAP folder ('.$folder_name.') not found on the mail server: '.$e->getMessage()));
             }
 
             if ($folder) {
                 $folders[] = $folder;
             } else {
-                $this->line('['.date('Y-m-d H:i:s').'] IMAP folder not found on the mail server: '.$folder_name);
+                $this->logInfo('IMAP folder not found on the mail server: '.$folder_name);
             }
         }
         // try {
@@ -264,12 +264,12 @@ class FetchEmails extends Command
 
         $unseen = \Eventy::filter('fetch_emails.unseen', $this->option('unseen'), $mailbox);
         if ($unseen != $this->option('unseen')) {
-            $this->line('['.date('Y-m-d H:i:s').'] Fetching: '.($unseen ? 'UNREAD' : 'ALL'));
+            $this->logInfo('Fetching: '.($unseen ? 'UNREAD' : 'ALL'));
         }
 
         $page_size = (int)config('app.fetching_bunch_size');
         foreach ($folders as $folder) {
-            $this->line('['.date('Y-m-d H:i:s').'] Folder: '.($folder->full_name ?? $folder->name));
+            $this->logInfo('Folder: '.($folder->full_name ?? $folder->name));
 
             // Requesting emails by bunches allows to fetch large amounts of emails
             // without problems with memory.
@@ -356,19 +356,19 @@ class FetchEmails extends Command
                     if ($folder->name == 'INBOX' && !$messages) {
                         throw new \Exception($last_error, 1);
                     } else {
-                        $this->error('['.date('Y-m-d H:i:s').'] '.$last_error);
+                        $this->error($this->formatLogLine($last_error));
                         $this->logError('Folder: '.$folder->name.'; Error: '.$last_error);
                     }
                 }
 
-                $this->line('['.date('Y-m-d H:i:s').'] Fetched: '.count($messages));
+                $this->logInfo('Fetched: '.count($messages));
 
                 $message_index = 1;
 
                 // We have to sort messages manually, as they can be in non-chronological order
                 $messages = $this->sortMessage($messages);
                 foreach ($messages as $message_id => $message) {
-                    $this->line('['.date('Y-m-d H:i:s').'] '.$message_index.') '.$message->getSubject());
+                    $this->logInfo($message_index.') '.$message->getSubject());
                     $message_index++;
 
                     $dest_mailbox = \Eventy::filter('fetch_emails.mailbox_to_save_message', $mailbox, $folder);
@@ -411,8 +411,7 @@ class FetchEmails extends Command
             }
 
             if (!$from) {
-                $this->logError('From is empty');
-                $this->setSeen($message, $mailbox);
+                $this->skipMessage($message, $mailbox, 'From is empty');
                 return;
             } else {
                 $from = $from[0];
@@ -423,7 +422,7 @@ class FetchEmails extends Command
             if (!$message_id) {
                 // Generate artificial Message-ID.
                 $message_id = \MailHelper::generateMessageId($from, $message->getRawBody());
-                $this->line('['.date('Y-m-d H:i:s').'] Message-ID is empty, generated artificial Message-ID: '.$message_id);
+                $this->logInfo('Message-ID is empty, generated artificial Message-ID: '.$message_id);
             }
 
             $duplicate_message_id = false;
@@ -486,7 +485,7 @@ class FetchEmails extends Command
                 // Generate artificial Message-ID.
                 $message_id = \MailHelper::generateMessageId(strstr($message_id, '@') ? $message_id : $from, $mailbox->id.$message_id);
 
-                $this->line('['.date('Y-m-d H:i:s').'] Generated artificial Message-ID: '.$message_id);
+                $this->logInfo('Generated artificial Message-ID: '.$message_id);
 
                 // https://github.com/freescout-help-desk/freescout/issues/5434
                 $duplicate_message_id = Thread::where('message_id', $message_id)->first();
@@ -494,7 +493,7 @@ class FetchEmails extends Command
 
             // Check if message already fetched.
             if ($duplicate_message_id) {
-                $this->line('['.date('Y-m-d H:i:s').'] Message with such Message-ID has been fetched before: '.$message_id);
+                $this->logInfo('Message with such Message-ID has been fetched before: '.$message_id);
                 $this->setSeen($message, $mailbox);
                 return;
             }
@@ -540,8 +539,7 @@ class FetchEmails extends Command
                     $prev_thread_id = $this->getVerifiedThreadId($m[1], $m[3] ?? '');
 
                     if (!$prev_thread_id) {
-                        $this->logError('Invalid hash in the Message-ID: '.$prev_message_id);
-                        $this->setSeen($message, $mailbox);
+                        $this->skipMessage($message, $mailbox, 'Invalid hash in the Message-ID: '.$prev_message_id);
                         return;
                     }
                     $prev_thread = Thread::find($m[1]);
@@ -552,21 +550,19 @@ class FetchEmails extends Command
                     $is_reply = true;
 
                     if (!$user) {
-                        $this->logError('User not found: '.$user_id);
-                        $this->setSeen($message, $mailbox);
+                        $this->skipMessage($message, $mailbox, 'User not found: '.$user_id);
                         return;
                     }
                     // Skip auto-replies sent to the email notification on behalf of a user.
                     // https://github.com/freescout-helpdesk/freescout/issues/4035
                     if (\MailHelper::isAutoResponder($message_header)) {
-                        $this->logError('Skipping an auto-reply to the email notification');
-                        $this->setSeen($message, $mailbox);
+                        $this->skipMessage($message, $mailbox, 'Skipping an auto-reply to the email notification');
                         return;
                     }
-                    $this->line('['.date('Y-m-d H:i:s').'] Message from: User');
+                    $this->logInfo('Message from: User');
                 } else {
                     // Message from Customer or User replied to his reply to notification
-                    $this->line('['.date('Y-m-d H:i:s').'] Message from: Customer');
+                    $this->logInfo('Message from: Customer');
 
                     if (!$is_bounce) {
                         
@@ -638,7 +634,7 @@ class FetchEmails extends Command
                             $is_reply = false;
                             $message_from_customer = true;
 
-                            $this->line('['.date('Y-m-d H:i:s').'] Forwarded email notification detected. Creating a new conversation.');
+                            $this->logInfo('Forwarded email notification detected. Creating a new conversation.');
                             break;
                         }
                     }
@@ -756,7 +752,7 @@ class FetchEmails extends Command
                     // SendAutoReply listener will check bounce flag and will not send an auto reply if this is an auto responder.
                     $new_thread = $this->saveCustomerThread($mailbox, $data['message_id'], $data['prev_thread'], $data['from'], $data['to'], $data['cc'], $data['bcc'], $data['subject'], $data['body'], $data['attachments'], $data['message']->getHeader(), $data['date']);
                 } else {
-                    $this->line('['.date('Y-m-d H:i:s').'] Hook fetch_emails.should_save_thread returned false. Skipping message.');
+                    $this->logInfo('Hook fetch_emails.should_save_thread returned false. Skipping message.');
                     $this->setSeen($message, $mailbox);
                     return;
                 }
@@ -766,8 +762,7 @@ class FetchEmails extends Command
                 // Check if From is the same as user's email.
                 // If not we send an email with information to the sender.
                 if (!$user->hasEmail($from)) {
-                    $this->logError("Sender address {$from} does not match ".$user->getFullName()." user email: ".$user->email.". Add ".$user->email." to user's Alternate Emails in the users's profile to allow the user reply from this address.");
-                    $this->setSeen($message, $mailbox);
+                    $this->skipMessage($message, $mailbox, "Sender address {$from} does not match ".$user->getFullName()." user email: ".$user->email.". Add ".$user->email." to user's Alternate Emails in the users's profile to allow the user reply from this address.");
 
                     // Send "Unable to process your update email" to user
                     \App\Jobs\SendEmailReplyError::dispatch($from, $user, $mailbox)->onQueue('emails');
@@ -778,16 +773,14 @@ class FetchEmails extends Command
                 // Save user thread only if there is prev_thread set.
                 // https://github.com/freescout-helpdesk/freescout/issues/3455
                 if (!$prev_thread) {
-                    $this->logError("Support agent's reply to the email notification could not be processed as previous thread could not be determined.");
-                    $this->setSeen($message, $mailbox);
+                    $this->skipMessage($message, $mailbox, "Support agent's reply to the email notification could not be processed as previous thread could not be determined.");
 
                     return;
                 }
 
                 // Check user access to the mailbox and conversation.
                 if (!$user->can('view', $prev_thread->conversation)) {
-                    $this->logError("Support agent (ID: ".$user->id.") has no accesss to the conversation #".$prev_thread->conversation->number." anymore and can not reply to the conversation.");
-                    $this->setSeen($message, $mailbox);
+                    $this->skipMessage($message, $mailbox, "Support agent (ID: ".$user->id.") has no accesss to the conversation #".$prev_thread->conversation->number." anymore and can not reply to the conversation.");
 
                     return;
                 }
@@ -795,7 +788,7 @@ class FetchEmails extends Command
                 if (\Eventy::filter('fetch_emails.should_save_thread', true, $data) !== false) {
                     $new_thread = $this->saveUserThread($data['mailbox'], $data['message_id'], $data['prev_thread'], $data['user'], $data['from'], $data['to'], $data['cc'], $data['bcc'], $data['body'], $data['attachments'], $data['message']->getHeader(), $data['date']);
                 } else {
-                    $this->line('['.date('Y-m-d H:i:s').'] Hook fetch_emails.should_save_thread returned false. Skipping message.');
+                    $this->logInfo('Hook fetch_emails.should_save_thread returned false. Skipping message.');
                     $this->setSeen($message, $mailbox);
                     return;
                 }
@@ -803,7 +796,7 @@ class FetchEmails extends Command
 
             if ($new_thread) {
                 $this->setSeen($message, $mailbox);
-                $this->line('['.date('Y-m-d H:i:s').'] Thread successfully created: '.$new_thread->id);
+                $this->logInfo('Thread successfully created: '.$new_thread->id);
 
                 // If it was a bounce message, save bounce data.
                 if ($message_from_customer && $is_bounce) {
@@ -1097,7 +1090,7 @@ class FetchEmails extends Command
                     ) {
                         $is_bounce = true;
 
-                        $this->line('['.date('Y-m-d H:i:s').'] Bounce detected by attachment content-type: '.$attachment->content_type);
+                        $this->logInfo('Bounce detected by attachment content-type: '.$attachment->content_type);
 
                         // Try to get Message-ID of the original email.
                         if (!$bounced_message_id) {
@@ -1121,13 +1114,13 @@ class FetchEmails extends Command
                 $original_from = $original_from[0];
                 $is_bounce = preg_match('/^mailer\-daemon@/i', $original_from);
                 if ($is_bounce) {
-                    $this->line('['.date('Y-m-d H:i:s').'] Bounce detected by From header: '.$original_from);
+                    $this->logInfo('Bounce detected by From header: '.$original_from);
                 }
             }
         }
         // Check Return-Path header
         if (!$is_bounce && preg_match("/^Return\-Path: <>/i", $message_header)) {
-            $this->line('['.date('Y-m-d H:i:s').'] Bounce detected by Return-Path header.');
+            $this->logInfo('Bounce detected by Return-Path header.');
             $is_bounce = true;
         }
 
@@ -1238,9 +1231,35 @@ class FetchEmails extends Command
         }
     }
 
+    /**
+     * Prefix console line with the current date and time.
+     */
+    public function formatLogLine($text)
+    {
+        return '['.date('Y-m-d H:i:s').'] '.$text;
+    }
+
+    /**
+     * Print informational line to the console.
+     */
+    public function logInfo($text)
+    {
+        $this->line($this->formatLogLine($text));
+    }
+
+    /**
+     * Log the reason why the message can not be imported
+     * and mark the message as seen so it is not fetched again.
+     */
+    public function skipMessage($message, $mailbox, $error)
+    {
+        $this->logError($error);
+        $this->setSeen($message, $mailbox);
+    }
+
     public function logError($message)
     {
-        $this->error('['.date('Y-m-d H:i:s').'] '.$message);
+        $this->error($this->formatLogLine($message));
 
         $mailbox_name = '';
         if ($this->mailbox) {
