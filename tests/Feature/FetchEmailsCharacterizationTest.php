@@ -59,6 +59,10 @@ class FetchEmailsCharacterizationTest extends TestCase
         $this->started_at = date('Y-m-d H:i:s', time() - 120);
         app()->forgetInstance('encrypter');
 
+        // Webklex keeps its options in a static ClientManager config. Initialise it
+        // explicitly instead of relying on another test class (hidden test dependency).
+        new \Webklex\PHPIMAP\ClientManager();
+
         $this->resetDatabase();
 
         $this->user = new User();
@@ -77,6 +81,11 @@ class FetchEmailsCharacterizationTest extends TestCase
     protected function resetDatabase()
     {
         $db = \DB::connection();
+        // Safety: never truncate a non-test database (e.g. when config is cached
+        // and phpunit.xml DB_CONNECTION=testing is ignored).
+        if (stripos($db->getDatabaseName(), 'test') === false) {
+            $this->fail('Refusing to truncate non-test database "'.$db->getDatabaseName().'". Run "php artisan config:clear".');
+        }
         $db->statement('SET FOREIGN_KEY_CHECKS=0');
         foreach ($db->select('SHOW TABLES') as $row) {
             $table = array_values((array)$row)[0];
