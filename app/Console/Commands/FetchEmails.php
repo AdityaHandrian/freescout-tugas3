@@ -636,45 +636,11 @@ class FetchEmails extends Command
 
             // If existing user forwarded customer's email to the mailbox
             // we are creating a new conversation as if it was sent by the customer.
-            if (// Some mail clients to not add "In-Reply-To" header when forwarding emails.
-                // https://github.com/freescout-help-desk/freescout/issues/4348
-                //$in_reply_to
-                // We should use body here, as entire HTML may contain
-                // email looking things.
-                //&& ($fwd_body = $html_body ?: $message->getTextBody())
-                $body
-                //&& preg_match("/^(".implode('|', \MailHelper::$fwd_prefixes)."):(.*)/i", $subject, $m) 
-                // F:, FW:, FWD:, WG:, De:
-                && preg_match("/^[[:alpha:]]{1,3}\s*:(.*)/i", $subject, $m)
-                // It can be just "Fwd:"
-                //&& !empty($m[1])
-                && !$user_id && !$is_reply && !$prev_thread
-                // Only if the email has been sent to one mailbox.
-                && count($to) == 1 && count($cc) == 0
-                // We need to replace also any potential <style></style> tags.
-                && preg_match("/^[\s]*".self::FWD_AS_CUSTOMER_COMMAND."/su", strtolower(trim(\Helper::stripTags($body))))
-            ) {
-                // Try to get "From:" from body.
-                $original_sender = $this->getOriginalSenderFromFwd($body);
-                
-                if ($original_sender) {
-                    // Check if sender is the existing user.
-                    $sender_is_user = User::nonDeleted()->where('email', $from)->exists();
-                    // Check Alternate emails.
-                    // https://github.com/freescout-help-desk/freescout/issues/5047
-                    if (!$sender_is_user) {
-                        $sender_is_user = User::findByAlternateEmail($from);
-                    }
-                    
-                    if ($sender_is_user) {
-                        // Substitute sender.
-                        $from = $original_sender;
-                        $subject = trim($m[1] ?? $subject);
-                        $message_from_customer = true;
-
-                        // Remove @fwd from body.
-                        $body = trim(preg_replace("/".self::FWD_AS_CUSTOMER_COMMAND."([\s<]+)/su", '$1', $body));
-                    }
+            if (!$user_id && !$is_reply && !$prev_thread) {
+                $forwarded = $this->getForwardedAsCustomer($from, $subject, $body, $to, $cc);
+                if ($forwarded) {
+                    list($from, $subject, $body) = $forwarded;
+                    $message_from_customer = true;
                 }
             }
 
@@ -813,6 +779,52 @@ class FetchEmails extends Command
         }
 
         return '';
+    }
+
+    /**
+     * Existing user forwards customer's email to the mailbox with "@fwd"
+     * command at the top of the body ("Fwd: ..." subject, one recipient, no CC).
+     * Some mail clients do not add "In-Reply-To" header when forwarding emails:
+     * https://github.com/freescout-help-desk/freescout/issues/4348
+     *
+     * @return array|null [$from, $subject, $body] of the original customer email
+     *                    or null if this is not a forward-as-customer email.
+     */
+    public function getForwardedAsCustomer($from, $subject, $body, $to, $cc)
+    {
+        if (!$body
+            // F:, FW:, FWD:, WG:, De:
+            || !preg_match("/^[[:alpha:]]{1,3}\s*:(.*)/i", $subject, $m)
+            // Only if the email has been sent to one mailbox.
+            || count($to) != 1 || count($cc) != 0
+            // We need to replace also any potential <style></style> tags.
+            || !preg_match("/^[\s]*".self::FWD_AS_CUSTOMER_COMMAND."/su", strtolower(trim(\Helper::stripTags($body))))
+        ) {
+            return null;
+        }
+
+        // Try to get "From:" from body.
+        $original_sender = $this->getOriginalSenderFromFwd($body);
+        if (!$original_sender) {
+            return null;
+        }
+
+        // Check if sender is the existing user (including alternate emails).
+        // https://github.com/freescout-help-desk/freescout/issues/5047
+        $sender_is_user = User::nonDeleted()->where('email', $from)->exists();
+        if (!$sender_is_user) {
+            $sender_is_user = User::findByAlternateEmail($from);
+        }
+        if (!$sender_is_user) {
+            return null;
+        }
+
+        return [
+            $original_sender,
+            trim($m[1] ?? $subject),
+            // Remove @fwd from body.
+            trim(preg_replace("/".self::FWD_AS_CUSTOMER_COMMAND."([\s<]+)/su", '$1', $body)),
+        ];
     }
 
     /**
