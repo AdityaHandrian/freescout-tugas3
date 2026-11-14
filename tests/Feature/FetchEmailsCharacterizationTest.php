@@ -620,7 +620,9 @@ Komplain kedua."), $this->mailbox];
                     $r['created_at'] = '<now>';
                 }
                 if ($table == 'activity_logs' && isset($r['properties'])) {
-                    $r['properties'] = preg_replace('/\\\\\\/[^"]*?\.php:\d+/', '<path>', $r['properties']);
+                    // File path and line number of an error are not part of the behaviour
+                    // (refactoring moves lines), only the error message is.
+                    $r['properties'] = preg_replace('/File: [^"]*?\.php \(\d+\)/', 'File: <file> (<line>)', $r['properties']);
                 }
                 return $r;
             })->toArray();
@@ -635,6 +637,7 @@ Komplain kedua."), $this->mailbox];
         $out = preg_replace('/\[\d{4}-\d\d-\d\d \d\d:\d\d:\d\d\]/', '[TS]', $out);
         $out = str_replace("\r\n", "\n", $out);
         $out = preg_replace('/\S+\.php(:\d+)?/', '<file>', $out);
+        $out = preg_replace('/<file> \(\d+\)/', '<file> (<line>)', $out);
         return $out;
     }
 

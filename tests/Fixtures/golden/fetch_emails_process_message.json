@@ -2588,7 +2588,7 @@
         }
     },
     "S31_latent_null_user_defect": {
-        "output": "[TS] Message from: Customer\n[TS] Error: Attempt to read property \"id\" on null; File: <file> (746)\n",
+        "output": "[TS] Message from: Customer\n[TS] Error: Attempt to read property \"id\" on null; File: <file> (<line>)\n",
         "seen": [
             "s31@agents.test"
         ],
@@ -2669,7 +2669,7 @@
                     "subject_type": null,
                     "causer_id": null,
                     "causer_type": null,
-                    "properties": "{\"error\":\"Error: Attempt to read property \\\"id\\\" on null; File: C:\\\\Users\\\\DURIAN\\\\freescout\\\\app\\\\Console\\\\Commands\\\\FetchEmails.php (746)\",\"mailbox\":\"Support\"}",
+                    "properties": "{\"error\":\"Error: Attempt to read property \\\"id\\\" on null; File: <file> (<line>)\",\"mailbox\":\"Support\"}",
                     "created_at": "<now>"
                 }
             ]
